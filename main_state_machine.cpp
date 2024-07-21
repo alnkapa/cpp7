@@ -7,15 +7,29 @@
 const std::string open{"{"};
 const std::string close{"{"};
 
-class State;
-
 class Block {
    private:
     int m_n{0};
     std::vector<std::string> m_stack;
     int m_counter{0};
-    State* m_state = new StateOff{};
+    class State {
+       public:
+        virtual ~State() = default;
+        virtual void handle() = 0;
+    };
+    class StateOff: public State {
+        void handle() override {
 
+        };
+    };
+    class StateOn: public State {
+        void handle() override {
+
+        };
+    };
+    StateOff m_state_off{};
+    StateOn m_state_on{};
+    State &m_state = m_state_off;
    public:
     Block(int n) : m_n(n){};
     void reader() {
@@ -25,13 +39,15 @@ class Block {
                 break;
             }
             if (command == open) {
-                m_state = new StateOn{};
+                m_state = m_state_on;
                 // TODO: state on
             } else if (command == close) {
                 // TODO: state off
-                m_state = new StateOff{};
+                m_state = m_state_off;
             } else {
                 // in block
+                m_stack.emplace_back(std::move(command));
+                m_counter++;
             }
         }
     };
@@ -54,26 +70,19 @@ class Block {
     };
 };
 
-class State {
-   public:
-    virtual ~State() = default;
-    virtual void state(Block& block) = 0;
-};
+// class StateOn : public State {
+//    public:
+//     void state(Block& block) override {
+//         // Implement state On behavior
+//     }
+// };
 
-class StateOn : public State {
-   public:
-    void state(Block& block) override {
-        // Implement state On behavior
-    }
-};
-
-class StateOff : public State {
-   public:
-    void state(Block& block) override {
-        // Implement state Off behavior
-    }
-};
-
+// class StateOff : public State {
+//    public:
+//     void state(Block& block) override {
+//         // Implement state Off behavior
+//     }
+// };
 
 // class BlockOff : public Block {
 //    public:
