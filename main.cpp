@@ -1,5 +1,4 @@
-#include <algorithm>
-#include <deque>
+#include <vector>
 #include <iostream>
 #include <iterator>
 #include <string>
@@ -9,7 +8,7 @@ class Status {
     enum class BLOCK : int { OFF = 0, ON = 1, INNER = 2 };
 
    private:
-    using my_type = std::deque<std::string>;
+    using my_type = std::vector<std::string>;
     my_type m_stack;
     int m_n{3};
     int m_counter{0};
