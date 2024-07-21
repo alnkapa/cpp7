@@ -1,7 +1,7 @@
-#include <vector>
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <vector>
 
 class Status {
    public:
@@ -18,7 +18,14 @@ class Status {
     bool m_block_end{false};
     void print() {
         if (m_stack.size() > 0) {
-            std::copy(m_stack.begin(), m_stack.end(), std::ostream_iterator<std::string>(std::cout, " "));
+            std::cout << "bulk: ";
+            auto it = m_stack.begin();
+            while (it != m_stack.end()) {
+                std::cout << *it;
+                if (++it != m_stack.end()) {
+                    std::cout << ", ";
+                }
+            }            
             std::cout << std::endl;
         }
     };
@@ -55,7 +62,7 @@ class Status {
                     for (auto&& v : inner_reader) {
                         m_stack.emplace_back(std::move(v));
                     };
-                } else if (inner_reader.m_block_end){
+                } else if (inner_reader.m_block_end) {
                     inner_reader.print();
                 }
                 // call dtor
@@ -86,7 +93,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "Usage: " << argv[0] << " N" << std::endl;
         return 1;
     }
-    int N = std::stoi(argv[1]);    
+    int N = std::stoi(argv[1]);
     Status read(N, Status::BLOCK::OFF);
     read.reader();
     return 0;
