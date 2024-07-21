@@ -13,15 +13,15 @@ class Status {
     my_type m_stack;
     int m_n{3};
     int m_counter{0};
-    BLOCK m_block_status{BLOCK::OFF};
+    BLOCK m_block_hierarchy{BLOCK::OFF};
     my_type::iterator begin() { return m_stack.begin(); };
     my_type::iterator end() { return m_stack.end(); };
-
+    bool m_block_end{false};
     void print() {
         if (m_stack.size() > 0) {
             std::copy(m_stack.begin(), m_stack.end(), std::ostream_iterator<std::string>(std::cout, " "));
             std::cout << std::endl;
-        }        
+        }
     };
 
     void clear() {
@@ -30,10 +30,10 @@ class Status {
     };
 
    public:
-    Status(int N, BLOCK block_status) : m_n(N), m_block_status(block_status){};
+    Status(int N, BLOCK block_status) : m_n(N), m_block_hierarchy(block_status){};
     ~Status() {
-        std::cout << "D:" << static_cast<int>(m_block_status) << "\n";        
-        if (m_block_status != BLOCK::INNER) {
+        std::cout << "D:" << static_cast<int>(m_block_hierarchy) << "\n";
+        if (m_block_hierarchy == BLOCK::OFF) {
             print();
         }
         clear();
@@ -46,39 +46,37 @@ class Status {
                 break;
             }
             if (command == "{") {
-                if (m_block_status == BLOCK::OFF) {
-                    // close block
+                if (m_block_hierarchy == BLOCK::OFF) {
                     print();
                     clear();
                 }
                 // new block
-                Status inner_reader(m_n, static_cast<BLOCK>(static_cast<int>(m_block_status) + 1));
+                Status inner_reader(m_n, static_cast<BLOCK>(static_cast<int>(m_block_hierarchy) + 1));
                 inner_reader.reader();
-                if (m_block_status > BLOCK::OFF) {
+                if (m_block_hierarchy > BLOCK::OFF) {
                     for (auto&& v : inner_reader) {
                         m_stack.emplace_back(std::move(v));
                     };
-                } else {
+                } else if (inner_reader.m_block_end){
                     inner_reader.print();
                 }
                 // call dtor
             } else if (command == "}") {
+                m_block_end = true;
                 // close block
-                if (m_block_status != BLOCK::OFF) {
+                if (m_block_hierarchy != BLOCK::OFF) {
                     return;
                 }
             } else {
                 // in block
                 m_stack.emplace_back(std::move(command));
                 m_counter++;
-                if (m_counter == m_n) {
-                    if (m_block_status > BLOCK::OFF) {
-                        clear();
-                    } else {
-                        print();
-                        clear();
-                    }
-                };
+                if (m_block_hierarchy == BLOCK::OFF && m_counter == m_n) {
+                    print();
+                    clear();
+                } else if (m_block_hierarchy > BLOCK::OFF && m_counter > m_n) {
+                    clear();
+                }
             }
         }
         return;
