@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25.1)
 
 project(Bulk VERSION 0.0.1)
 
-add_executable(bulk main.cpp)
+add_executable(bulk main_state_machine.cpp)
 
 target_include_directories(
     bulk
