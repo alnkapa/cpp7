@@ -13,8 +13,6 @@ class Status {
     int m_n{3};
     int m_counter{0};
     BLOCK m_block_hierarchy{BLOCK::OFF};
-    my_type::iterator begin() { return m_stack.begin(); };
-    my_type::iterator end() { return m_stack.end(); };
     bool m_block_end{false};
     void print() {
         if (m_stack.size() > 0) {
@@ -25,7 +23,7 @@ class Status {
                 if (++it != m_stack.end()) {
                     std::cout << ", ";
                 }
-            }            
+            }
             std::cout << std::endl;
         }
     };
@@ -56,10 +54,14 @@ class Status {
                     clear();
                 }
                 // new block
-                Status inner_reader(m_n, static_cast<BLOCK>(static_cast<int>(m_block_hierarchy) + 1));
+                auto block_hierarchy = m_block_hierarchy;
+                if (m_block_hierarchy < BLOCK::INNER) {
+                    block_hierarchy = static_cast<BLOCK>(static_cast<int>(m_block_hierarchy) + 1);
+                }
+                Status inner_reader(m_n, block_hierarchy);
                 inner_reader.reader();
                 if (m_block_hierarchy > BLOCK::OFF) {
-                    for (auto&& v : inner_reader) {
+                    for (auto&& v : inner_reader.m_stack) {
                         m_stack.emplace_back(std::move(v));
                     };
                 } else if (inner_reader.m_block_end) {
