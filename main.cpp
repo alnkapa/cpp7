@@ -1,74 +1,104 @@
 #include <algorithm>
+#include <deque>
 #include <iostream>
 #include <iterator>
-#include <set>
 #include <string>
-#include <vector>
 
 class Status {
+   public:
+    enum class BLOCK : int { OFF = 0, ON = 1, INNER = 2 };
+
    private:
-    std::vector<std::string> m_stack;
+    using my_type = std::deque<std::string>;
+    my_type m_stack;
     int m_n{3};
     int m_counter{0};
-    bool m_inner_block{false};
-    enum class Token { NO_SET, OPEN_BRACKET, CLOSE_BRACKET };
+    BLOCK m_block_status{BLOCK::OFF};
+    my_type::iterator begin() { return m_stack.begin(); };
+    my_type::iterator end() { return m_stack.end(); };
+
+    void print() {
+        if (m_stack.size() > 0) {
+            std::copy(m_stack.begin(), m_stack.end(), std::ostream_iterator<std::string>(std::cout, " "));
+            std::cout << std::endl;
+        }        
+    };
+
+    void clear() {
+        m_stack.clear();
+        m_counter = 0;
+    };
 
    public:
-    Status(int N, bool inner_block) : m_n(N), m_inner_block(inner_block) { m_stack.reserve(N); };
-    ~Status(){
-        if (!m_inner_block) {
+    Status(int N, BLOCK block_status) : m_n(N), m_block_status(block_status){};
+    ~Status() {
+        std::cout << "D:" << static_cast<int>(m_block_status) << "\n";        
+        if (m_block_status != BLOCK::INNER) {
             print();
         }
+        clear();
     };
-    void print() {
-        if (m_counter > 0) {
-            std::copy_n(m_stack.begin(), m_counter, std::ostream_iterator<std::string>(std::cout, " "));
-            std::cout << std::endl;
-            m_stack.clear();
-            m_counter = 0;
-        }
-    }
-    Token reader() {
+
+    void reader() {
         std::string command;
         while (std::getline(std::cin, command)) {
             if (command.empty()) {
                 break;
             }
             if (command == "{") {
-                // TODO: close block
-
+                if (m_block_status == BLOCK::OFF) {
+                    // close block
+                    print();
+                    clear();
+                }
                 // new block
-                Status read(m_n, true);
-                auto token = read.reader();
+                Status inner_reader(m_n, static_cast<BLOCK>(static_cast<int>(m_block_status) + 1));
+                inner_reader.reader();
+                if (m_block_status > BLOCK::OFF) {
+                    for (auto&& v : inner_reader) {
+                        m_stack.emplace_back(std::move(v));
+                    };
+                } else {
+                    inner_reader.print();
+                }
+                // call dtor
             } else if (command == "}") {
                 // close block
-                return Token::CLOSE_BRACKET;
+                if (m_block_status != BLOCK::OFF) {
+                    return;
+                }
             } else {
                 // in block
                 m_stack.emplace_back(std::move(command));
                 m_counter++;
                 if (m_counter == m_n) {
-                    print();
+                    if (m_block_status > BLOCK::OFF) {
+                        clear();
+                    } else {
+                        print();
+                        clear();
+                    }
                 };
             }
         }
-        return Token::NO_SET;
+        return;
     };
 };
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " N" << std::endl;
-        return 1;
-    }
+    // if (argc != 2) {
+    //     std::cerr << "Usage: " << argv[0] << " N" << std::endl;
+    //     return 1;
+    // }
+    // int N = 3;
+    // try {
+    //     N = std::stoi(argv[1]);
+    // } catch (const std::exception& ex) {
+    //     std::cerr << "Usage: " << argv[0] << " N" << std::endl;
+    //     return 1;
+    // }
     int N = 3;
-    try {
-        N = std::stoi(argv[1]);
-    } catch (const std::exception& ex) {
-        std::cerr << "Usage: " << argv[0] << " N" << std::endl;
-        return 1;
-    }
-    Status read(N, false);
+    Status read(N, Status::BLOCK::OFF);
     read.reader();
     return 0;
 }
