@@ -8,8 +8,7 @@ class Status {
     enum class BLOCK : int { OFF = 0, ON = 1, INNER = 2 };
 
    private:
-    using my_type = std::vector<std::string>;
-    my_type m_stack;
+    std::vector<std::string> m_stack;
     int m_n{3};
     int m_counter{0};
     BLOCK m_block_hierarchy{BLOCK::OFF};
