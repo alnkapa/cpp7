@@ -32,7 +32,6 @@ class Status {
    public:
     Status(int N, BLOCK block_status) : m_n(N), m_block_hierarchy(block_status){};
     ~Status() {
-        std::cout << "D:" << static_cast<int>(m_block_hierarchy) << "\n";
         if (m_block_hierarchy == BLOCK::OFF) {
             print();
         }
@@ -84,18 +83,11 @@ class Status {
 };
 
 int main(int argc, char* argv[]) {
-    // if (argc != 2) {
-    //     std::cerr << "Usage: " << argv[0] << " N" << std::endl;
-    //     return 1;
-    // }
-    // int N = 3;
-    // try {
-    //     N = std::stoi(argv[1]);
-    // } catch (const std::exception& ex) {
-    //     std::cerr << "Usage: " << argv[0] << " N" << std::endl;
-    //     return 1;
-    // }
-    int N = 3;
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " N" << std::endl;
+        return 1;
+    }
+    int N = std::stoi(argv[1]);    
     Status read(N, Status::BLOCK::OFF);
     read.reader();
     return 0;
