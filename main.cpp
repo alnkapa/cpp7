@@ -1,113 +1,74 @@
 #include <algorithm>
-#include <cassert>
 #include <iostream>
-#include <map>
+#include <iterator>
+#include <set>
+#include <string>
+#include <vector>
 
-template <typename T, int initial_value>
-class Matrix {
+class Status {
    private:
-    using key_t = std::pair<int, int>;
-    using type_t = std::map<key_t, T>;
-    type_t m_matrix;
-    class Proxy {
-       private:
-        type_t &m_matrix;
-        int m_row;
-        int m_col;
-
-       public:
-        explicit Proxy(type_t &matrix, int row) : m_matrix(matrix), m_row(row){};
-        Proxy &operator[](int col) {
-            m_col = col;
-            return *this;
-        };
-        Proxy &operator=(T in) {
-            m_matrix[key_t{m_row, m_col}] = in;
-            return *this;
-        };
-        operator T() const {
-            if (auto it = m_matrix.find(key_t{m_row, m_col}); it != m_matrix.end()) {
-                return it->second;
-            } else {
-                return initial_value;
-            }
-        };
-    };
-    class Iterator {
-       private:
-        type_t::iterator m_ptr;
-
-       public:
-        using iterator_category = std::input_iterator_tag;
-        explicit Iterator(const type_t::iterator &ptr) : m_ptr(ptr){};
-        Iterator &operator++() {
-            m_ptr++;
-            return *this;
-        };
-        std::tuple<int, int, T> operator*() {
-            return std::make_tuple((m_ptr->first).first, (m_ptr->first).second, m_ptr->second);
-        };
-        friend bool operator!=(const Iterator &a, const Iterator &b) { return a.m_ptr != b.m_ptr; };
-    };
+    std::vector<std::string> m_stack;
+    int m_n{3};
+    int m_counter{0};
+    bool m_inner_block{false};
+    enum class Token { NO_SET, OPEN_BRACKET, CLOSE_BRACKET };
 
    public:
-    std::size_t size() const { return m_matrix.size(); };
-    void clear() { m_matrix.clear(); };
-    Proxy operator[](int row) { return Proxy{m_matrix, row}; };
-
-    Iterator begin() { return Iterator{m_matrix.begin()}; };
-    Iterator end() { return Iterator{m_matrix.end()}; };
-};
-int main() {
-    Matrix<int, -1> matrix;
-    assert(matrix.size() == 0);  // все ячейки свободны
-    auto a = matrix[0][0];
-    assert(a == -1);
-    assert(matrix.size() == 0);
-    matrix[100][100] = 314;
-    assert(matrix[100][100] == 314);
-    assert(matrix.size() == 1);
-
-    // выведется одна строка
-    // 100100314
-    for (auto c : matrix) {
-        int x;
-        int y;
-        int v;
-        std::tie(x, y, v) = c;
-        std::cout << x << y << v << std::endl;
-    }
-    // Опционально реализовать каноническую форму оператора =,
-    // допускающую выражения ((matrix[100][100] = 314) = 0) = 217
-    ((matrix[100][100] = 314) = 0) = 217;
-    // выведется одна строка
-    // 100100217
-    for (auto c : matrix) {
-        int x;
-        int y;
-        int v;
-        std::tie(x, y, v) = c;
-        std::cout << x << y << v << std::endl;
-    }
-    matrix.clear();
-
-    // При запуске программы необходимо создать матрицу с пустым значением 0
-    Matrix<int, 0> matrix1;
-    // заполнить главную диагональ матрицы (от [0,0] до [9,9]) значениями от 0 до 9.
-    // Второстепенную диагональ (от [0,9] до [9,0]) значениями от 9 до 0.
-    for (int i = 0; i < 10; ++i) {
-        matrix1[i][i] = i;
-        matrix1[9 - i][i] = 9 - i;
-    }
-    // TODO: подумать как сделать Matrix::find(row,col)
-    for (auto c : matrix1) {
-        int x;
-        int y;
-        int v;
-        std::tie(x, y, v) = c;
-        if (x >= 1 && x <= 8 && y >= 1 && y <= 8) {
-            std::cout << x << " " << y << " " << v << std::endl;            
+    Status(int N, bool inner_block) : m_n(N), m_inner_block(inner_block) { m_stack.reserve(N); };
+    ~Status(){
+        if (!m_inner_block) {
+            print();
+        }
+    };
+    void print() {
+        if (m_counter > 0) {
+            std::copy_n(m_stack.begin(), m_counter, std::ostream_iterator<std::string>(std::cout, " "));
+            std::cout << std::endl;
+            m_stack.clear();
+            m_counter = 0;
         }
     }
+    Token reader() {
+        std::string command;
+        while (std::getline(std::cin, command)) {
+            if (command.empty()) {
+                break;
+            }
+            if (command == "{") {
+                // TODO: close block
+
+                // new block
+                Status read(m_n, true);
+                auto token = read.reader();
+            } else if (command == "}") {
+                // close block
+                return Token::CLOSE_BRACKET;
+            } else {
+                // in block
+                m_stack.emplace_back(std::move(command));
+                m_counter++;
+                if (m_counter == m_n) {
+                    print();
+                };
+            }
+        }
+        return Token::NO_SET;
+    };
+};
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " N" << std::endl;
+        return 1;
+    }
+    int N = 3;
+    try {
+        N = std::stoi(argv[1]);
+    } catch (const std::exception& ex) {
+        std::cerr << "Usage: " << argv[0] << " N" << std::endl;
+        return 1;
+    }
+    Status read(N, false);
+    read.reader();
     return 0;
 }
