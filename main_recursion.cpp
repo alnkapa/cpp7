@@ -1,8 +1,33 @@
 // recursion version
+#include <chrono>
+#include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <iterator>
 #include <string>
 #include <vector>
+
+class TeeStream : public std::ostream {
+   private:
+    std::vector<std::ostream*> m_out;
+
+   public:
+    TeeStream(std::initializer_list<std::ostream*> out) : std::ostream(nullptr), m_out(out){};
+    void add(std::ostream* out) { m_out.emplace_back(out); };
+    template <typename T>
+    TeeStream& operator<<(T in) {
+        for (std::ostream* out : m_out) {
+            (*out) << in;
+        }
+        return *this;
+    };
+    inline TeeStream& operator<<(std::ostream& (*__pf)(std::ostream&)) {
+        for (std::ostream* out : m_out) {
+            (*out) << __pf;
+        }
+        return *this;
+    }
+};
 
 class Status {
    public:
@@ -10,27 +35,37 @@ class Status {
 
    private:
     std::vector<std::string> m_stack;
+    long long m_time_stamp{0};
     int m_n{3};
     int m_counter{0};
     BLOCK m_block_hierarchy{BLOCK::OFF};
     bool m_block_end{false};
     void print() {
         if (m_stack.size() > 0) {
-            std::cout << "bulk: ";
+            TeeStream multiStream{&std::cout};        
+            std::ofstream file("bulk" + std::to_string(m_time_stamp) + ".log");
+            if (file.is_open()) {
+                multiStream.add(&file);
+            }
+            multiStream << "bulk: ";
             auto it = m_stack.begin();
             while (it != m_stack.end()) {
-                std::cout << *it;
+                multiStream << *it;
                 if (++it != m_stack.end()) {
-                    std::cout << ", ";
+                    multiStream << ", ";
                 }
             }
-            std::cout << std::endl;
+            multiStream << std::endl;
+            if (file.is_open()) {
+                file.close();
+            }
         }
     };
 
     void clear() {
         m_stack.clear();
         m_counter = 0;
+        m_time_stamp = 0;
     };
 
    public:
@@ -75,6 +110,11 @@ class Status {
                     return;
                 }
             } else {
+                if (m_time_stamp == 0) {
+                    m_time_stamp = std::chrono::duration_cast<std::chrono::seconds>(
+                                       std::chrono::system_clock::now().time_since_epoch())
+                                       .count();
+                }
                 // in block
                 m_stack.emplace_back(std::move(command));
                 m_counter++;
