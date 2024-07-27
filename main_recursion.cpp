@@ -27,6 +27,7 @@ class TeeStream : public std::ostream {
         }
         return *this;
     }
+    // TODO: make close for file in destructor
 };
 
 class Status {
