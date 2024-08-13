@@ -115,25 +115,26 @@ class OFFSub : public Cmd {
 
     };
     void callback(const command_t& in) override {
-        if (std::get<0>(in) != Level::NONE) {
+        auto [level, status, cmd, time_stamp] = in;
+        if (level != Level::NONE) {
             return;
         }
         // "cmd0" or "{"
 
         // "{"
-        if (std::get<1>(in) == Status::BLOCK_ON) {
+        if (status == Status::BLOCK_ON) {
             std::cout << "OFFSub\n";
             pub_and_clear();
             return;
         }
 
         // cmd0
-        if (std::get<1>(in) == Status::NONE) {
+        if (status == Status::NONE) {
             std::cout << "OFFSub\n";
             if (m_time_stamp == 0) {
-                m_time_stamp = std::get<3>(in);
+                m_time_stamp = time_stamp;
             }
-            m_stack.emplace_back(std::move(std::get<2>(in)));
+            m_stack.emplace_back(std::move(cmd));
             m_counter++;
             if (m_counter == m_n) {
                 pub_and_clear();
@@ -168,13 +169,14 @@ class ONSub : public Cmd {
 
     };
     void callback(const command_t& in) override {
-        if (std::get<0>(in) != Level::FIRST) {
+        auto [level, status, cmd, time_stamp] = in;
+        if (level != Level::FIRST) {
             return;
         }
         // cmd1  or "{" or "}"
 
         // "{"
-        if (std::get<1>(in) == Status::BLOCK_ON) {
+        if (status == Status::BLOCK_ON) {
             std::cout << "ONSub\n";
             // to INNER BOLck
 
@@ -182,7 +184,7 @@ class ONSub : public Cmd {
         }
 
         // "}"
-        if (std::get<1>(in) == Status::BLOCK_OFF) {
+        if (status == Status::BLOCK_OFF) {
             std::cout << "ONSub\n";
             print();
             clear();
@@ -190,12 +192,12 @@ class ONSub : public Cmd {
         }
 
         // cmd1
-        if (std::get<1>(in) == Status::NONE) {
+        if (status == Status::NONE) {
             std::cout << "ONSub\n";
             if (m_time_stamp == 0) {
-                m_time_stamp = std::get<3>(in);
+                m_time_stamp = time_stamp;
             }
-            m_stack.emplace_back(std::move(std::get<2>(in)));
+            m_stack.emplace_back(std::move(cmd));
             m_counter++;
             if (m_counter > m_n) {
                 clear();
@@ -213,8 +215,6 @@ class INNERSub : public Cmd {
         std::vector<std::string> stack{};
         unix_time_stamp_t time_stamp{0};
     };
-    std::vector<Store> m_stack{};
-    int m_stack_index{0};
 
    public:
     INNERSub(size_t N) : Cmd(), m_n(N){};
@@ -222,27 +222,28 @@ class INNERSub : public Cmd {
 
     };
     void callback(const command_t& in) override {
-        if (std::get<0>(in) != Level::OTHER) {
+        auto [level, status, cmd, time_stamp] = in;
+        if (level != Level::OTHER) {
             return;
         }
         // cmd1  or "{" or "}"
 
         // "{"
-        if (std::get<1>(in) == Status::BLOCK_ON) {
+        if (status == Status::BLOCK_ON) {
             std::cout << "INNERSub\n";
             // to INNERSub+
             return;
         }
 
         // "}"
-        if (std::get<1>(in) == Status::BLOCK_OFF) {
+        if (status == Status::BLOCK_OFF) {
             std::cout << "INNERSub\n";
             // to INNERSub+
             return;
         }
 
         // cmd1
-        if (std::get<1>(in) == Status::NONE) {
+        if (status == Status::NONE) {
             std::cout << "INNERSub\n";
             // if (m_time_stamp == 0) {
             //     m_time_stamp = std::get<3>(in);
@@ -295,11 +296,11 @@ int main(int argc, char* argv[]) {
         std::make_shared<ONSub>(N),
         std::make_shared<INNERSub>(N),
     };
-    subs[2]->subscribe(subs[1]);
-    subs[1]->subscribe(subs[1]);
+    auto [off, on, inner] = subs;
+    inner->subscribe(on);
     for (auto v : subs_print) {
-        subs[0]->subscribe(v);
-        subs[1]->subscribe(v);
+        off->subscribe(v);
+        on->subscribe(v);
     }
     CinPub pub;
     for (auto v : subs) {
