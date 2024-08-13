@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iostream>
 #include <memory>
+#include <stack>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -111,9 +112,7 @@ class OFFSub : public Cmd {
    public:
     OFFSub(size_t N) : Cmd(), m_n(N) { m_stack.reserve(N); };
     ~OFFSub() { pub_and_clear(); };
-    void callback(const print_t& in) override{
-
-    };
+    void callback(const print_t& in) override { std::cout << "to OFFSub\n"; };
     void callback(const command_t& in) override {
         auto [level, status, cmd, time_stamp] = in;
         if (level != Level::NONE) {
@@ -165,9 +164,7 @@ class ONSub : public Cmd {
 
    public:
     ONSub(size_t N) : Cmd(), m_n(N) { m_stack.reserve(N); };
-    void callback(const print_t& in) override{
-
-    };
+    void callback(const print_t& in) override { std::cout << "to ONSub\n"; };
     void callback(const command_t& in) override {
         auto [level, status, cmd, time_stamp] = in;
         if (level != Level::FIRST) {
@@ -211,16 +208,21 @@ class ONSub : public Cmd {
 class INNERSub : public Cmd {
    private:
     size_t m_n{3};
-    struct Store {
-        std::vector<std::string> stack{};
-        unix_time_stamp_t time_stamp{0};
+    size_t m_counter{0};
+    std::vector<std::string> m_stack{};
+    std::stack<size_t> m_count_stack{};
+    unix_time_stamp_t m_time_stamp{0};
+    int m_current_level{0};
+    void clear() {
+        if (!m_stack.empty()) {
+            m_stack.clear();
+        }
+        m_counter = 0;
     };
 
    public:
     INNERSub(size_t N) : Cmd(), m_n(N){};
-    void callback(const print_t& in) override{
-
-    };
+    void callback(const print_t& in) override { std::cout << "INNERSub\n"; };
     void callback(const command_t& in) override {
         auto [level, status, cmd, time_stamp] = in;
         if (level != Level::OTHER) {
@@ -231,28 +233,34 @@ class INNERSub : public Cmd {
         // "{"
         if (status == Status::BLOCK_ON) {
             std::cout << "INNERSub\n";
-            // to INNERSub+
+            m_count_stack.push(m_counter);
+            m_counter = 0;
+            ++m_current_level;
             return;
         }
 
         // "}"
-        if (status == Status::BLOCK_OFF) {
+        if (status == Status::BLOCK_OFF && m_current_level > 0) {
             std::cout << "INNERSub\n";
-            // to INNERSub+
+            if (!m_stack.empty()) {
+                notify({m_time_stamp, m_stack});
+                clear();
+            }
+            --m_current_level;
             return;
         }
 
         // cmd1
         if (status == Status::NONE) {
             std::cout << "INNERSub\n";
-            // if (m_time_stamp == 0) {
-            //     m_time_stamp = std::get<3>(in);
-            // }
-            // m_stack.emplace_back(std::move(std::get<2>(in)));
-            // m_counter++;
-            // if (m_counter > m_n) {
-            //     clear();
-            // }
+            if (m_time_stamp == 0) {
+                m_time_stamp = time_stamp;
+            }
+            m_stack.emplace_back(std::move(cmd));
+            m_counter++;
+            if (m_counter > m_n) {
+                clear();
+            }
             return;
         }
     };
