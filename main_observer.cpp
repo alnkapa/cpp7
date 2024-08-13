@@ -51,9 +51,21 @@ class Publisher {
 using unix_time_stamp_t = long long;
 enum class Status { NONE, BLOCK_ON, BLOCK_OFF };
 enum class Level { NONE, FIRST, OTHER };
-using command_t = std::tuple<Status, std::string, unix_time_stamp_t>;
+using command_t = std::tuple<Level, Status, std::string, unix_time_stamp_t>;
 using print_t = std::pair<unix_time_stamp_t, std::vector<std::string>>;
 class CinPub : public Publisher<command_t> {
+   private:
+    int m_current_level{0};
+    Level level() {
+        if (m_current_level == 0) {
+            return Level::NONE;
+        } else if (m_current_level == 1) {
+            return Level::FIRST;
+        } else {
+            return Level::OTHER;
+        }
+    }
+
    public:
     unix_time_stamp_t time() {
         return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
@@ -66,41 +78,19 @@ class CinPub : public Publisher<command_t> {
                 break;
             }
             if (command == "{") {  // начало блока
-                notify({Status::BLOCK_ON, "", 0});
-            } else if (command == "}") {  // конец блока
-                notify({Status::BLOCK_OFF, "", 0});
+                notify({level(), Status::BLOCK_ON, "", 0});
+                ++m_current_level;
+            } else if (command == "}" && m_current_level > 0) {  // конец блока
+                notify({level(), Status::BLOCK_OFF, "", 0});
+                --m_current_level;
             } else {  // команда
-                notify({Status::NONE, command, time()});
+                notify({level(), Status::NONE, command, time()});
             }
         }
     };
 };
 
-template <Level L>
-class Active {
-   private:
-    int m_curent_level{0};
-
-   public:
-    Active() {};
-    bool On(Status in) {
-        switch (in) {
-            case Status::BLOCK_ON:
-                ++m_curent_level;
-                break;
-            case Status::BLOCK_OFF:
-                --m_curent_level;
-                break;
-            default:
-                break;
-        }
-        return L == m_curent_level;
-    };
-    bool Up() { return m_curent_level - L == 1; }
-    bool Down() { return m_curent_level - L == -1; }
-};
-
-class Cmd : public Subscriber<command_t>, public Publisher<print_t> {};
+class Cmd : public Subscriber<command_t>, public Publisher<print_t>, public Subscriber<print_t> {};
 
 // без блока
 class OFFSub : public Cmd {
@@ -109,7 +99,6 @@ class OFFSub : public Cmd {
     unix_time_stamp_t m_time_stamp{0};
     size_t m_n{3};
     size_t m_counter{0};
-    Active<Level::NONE> active{};
     void pub_and_clear() {
         if (!m_stack.empty()) {
             notify({m_time_stamp, m_stack});
@@ -122,21 +111,33 @@ class OFFSub : public Cmd {
    public:
     OFFSub(size_t N) : Cmd(), m_n(N) { m_stack.reserve(N); };
     ~OFFSub() { pub_and_clear(); };
+    void callback(const print_t& in) override{
+
+    };
     void callback(const command_t& in) override {
-        if (!active.On(std::get<0>(in))) {
-            if (active.Up()) {
-                pub_and_clear();
-            }
+        if (std::get<0>(in) != Level::NONE) {
             return;
         }
-        std::cout << "OFFSub\n";
-        if (m_time_stamp == 0) {
-            m_time_stamp = std::get<2>(in);
-        }
-        m_stack.emplace_back(std::move(std::get<1>(in)));
-        m_counter++;
-        if (m_counter == m_n) {
+        // "cmd0" or "{"
+
+        // "{"
+        if (std::get<1>(in) == Status::BLOCK_ON) {
+            std::cout << "OFFSub\n";
             pub_and_clear();
+            return;
+        }
+
+        // cmd0
+        if (std::get<1>(in) == Status::NONE) {
+            std::cout << "OFFSub\n";
+            if (m_time_stamp == 0) {
+                m_time_stamp = std::get<3>(in);
+            }
+            m_stack.emplace_back(std::move(std::get<2>(in)));
+            m_counter++;
+            if (m_counter == m_n) {
+                pub_and_clear();
+            }
         }
     };
 };
@@ -148,8 +149,6 @@ class ONSub : public Cmd {
     unix_time_stamp_t m_time_stamp{0};
     size_t m_n{3};
     size_t m_counter{0};
-    Active<Level::FIRST> active{};
-    int m_block_counter{};
     void clear() {
         if (!m_stack.empty()) {
             m_stack.clear();
@@ -165,22 +164,43 @@ class ONSub : public Cmd {
 
    public:
     ONSub(size_t N) : Cmd(), m_n(N) { m_stack.reserve(N); };
+    void callback(const print_t& in) override{
+
+    };
     void callback(const command_t& in) override {
-        if (!active.On(std::get<0>(in))) {
-            if (active.Down()) {
-                print();
+        if (std::get<0>(in) != Level::FIRST) {
+            return;
+        }
+        // cmd1  or "{" or "}"
+
+        // "{"
+        if (std::get<1>(in) == Status::BLOCK_ON) {
+            std::cout << "ONSub\n";
+            // to INNER BOLck
+
+            return;
+        }
+
+        // "}"
+        if (std::get<1>(in) == Status::BLOCK_OFF) {
+            std::cout << "ONSub\n";
+            print();
+            clear();
+            return;
+        }
+
+        // cmd1
+        if (std::get<1>(in) == Status::NONE) {
+            std::cout << "ONSub\n";
+            if (m_time_stamp == 0) {
+                m_time_stamp = std::get<3>(in);
+            }
+            m_stack.emplace_back(std::move(std::get<2>(in)));
+            m_counter++;
+            if (m_counter > m_n) {
                 clear();
             }
             return;
-        }
-        std::cout << "ONSub\n";
-        if (m_time_stamp == 0) {
-            m_time_stamp = std::get<2>(in);
-        }
-        m_stack.emplace_back(std::move(std::get<1>(in)));
-        m_counter++;
-        if (m_counter > m_n) {
-            clear();
         }
     };
 };
@@ -189,8 +209,6 @@ class ONSub : public Cmd {
 class INNERSub : public Cmd {
    private:
     size_t m_n{3};
-    int m_current_level{0};
-    int m_previous_level{0};
     struct Store {
         std::vector<std::string> stack{};
         unix_time_stamp_t time_stamp{0};
@@ -199,52 +217,50 @@ class INNERSub : public Cmd {
     int m_stack_index{0};
 
    public:
-    INNERSub(size_t N) : Cmd(), m_n(N) {};
+    INNERSub(size_t N) : Cmd(), m_n(N){};
+    void callback(const print_t& in) override{
+
+    };
     void callback(const command_t& in) override {
-        auto status = std::get<0>(in);
-        if (status == Status::BLOCK_ON) {
-            m_previous_level = m_current_level;
-            ++m_current_level;
-        } else if (status == Status::BLOCK_OFF) {
-            m_previous_level = m_current_level;
-            --m_current_level;
-        }
-        if (m_current_level < 1) {
+        if (std::get<0>(in) != Level::OTHER) {
             return;
         }
-        if (status != Status::NONE) {
+        // cmd1  or "{" or "}"
+
+        // "{"
+        if (std::get<1>(in) == Status::BLOCK_ON) {
+            std::cout << "INNERSub\n";
+            // to INNERSub+
             return;
-        }
-        std::cout << "INNERSub\n";
-        if (m_current_level > m_previous_level) {  // Up
-            ++m_stack_index;
-            m_stack[m_stack_index];
-        } else if (m_current_level < m_previous_level) {  // Down
-            --m_stack_index;
         }
 
-        // if (!active.On(std::get<0>(in))) {
-        //     if (active.Down()) {
-        //         // print();
-        //         clear();
-        //     }
-        //     return;
-        // }
-        // if (m_time_stamp == 0) {
-        //     m_time_stamp = std::get<2>(in);
-        // }
-        // m_stack.emplace_back(std::move(std::get<1>(in)));
-        // m_counter++;
-        // if (m_counter > m_n) {
-        //     clear();
-        // }
+        // "}"
+        if (std::get<1>(in) == Status::BLOCK_OFF) {
+            std::cout << "INNERSub\n";
+            // to INNERSub+
+            return;
+        }
+
+        // cmd1
+        if (std::get<1>(in) == Status::NONE) {
+            std::cout << "INNERSub\n";
+            // if (m_time_stamp == 0) {
+            //     m_time_stamp = std::get<3>(in);
+            // }
+            // m_stack.emplace_back(std::move(std::get<2>(in)));
+            // m_counter++;
+            // if (m_counter > m_n) {
+            //     clear();
+            // }
+            return;
+        }
     };
 };
 
 // вывод на экран
 class Display : public Subscriber<print_t> {
    public:
-    Display() : Subscriber<print_t>() {};
+    Display() : Subscriber<print_t>(){};
     void callback(const print_t& in) override {
         std::cout << "bulk: ";
         auto it = in.second.begin();
@@ -260,8 +276,8 @@ class Display : public Subscriber<print_t> {
 // вывод в файл
 class File : public Subscriber<print_t> {
    public:
-    File() : Subscriber<print_t>() {};
-    void callback(const print_t& in) override {};
+    File() : Subscriber<print_t>(){};
+    void callback(const print_t& in) override{};
 };
 
 int main(int argc, char* argv[]) {
@@ -279,11 +295,14 @@ int main(int argc, char* argv[]) {
         std::make_shared<ONSub>(N),
         std::make_shared<INNERSub>(N),
     };
+    subs[2]->subscribe(subs[1]);
+    subs[1]->subscribe(subs[1]);
+    for (auto v : subs_print) {
+        subs[0]->subscribe(v);
+        subs[1]->subscribe(v);
+    }
     CinPub pub;
     for (auto v : subs) {
-        for (auto vv : subs_print) {
-            v->subscribe(vv);
-        }
         pub.subscribe(v);
     };
     pub.run();
