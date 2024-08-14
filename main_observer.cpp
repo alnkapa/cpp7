@@ -127,7 +127,7 @@ class OFFSub : public Cmd {
         std::cout << std::endl;
     };
     void callback(const command_t& in) override {
-        auto [level, status, cmd, time_stamp] = in;
+        auto &[level, status, cmd, time_stamp] = in;
         if (level != Level::NONE) {
             return;
         }
@@ -184,7 +184,7 @@ class ONSub : public Cmd {
         }
     };
     void callback(const command_t& in) override {
-        auto [level, status, cmd, time_stamp] = in;
+        auto &[level, status, cmd, time_stamp] = in;
         if (level != Level::FIRST) {
             return;
         }
@@ -236,7 +236,7 @@ class INNERSub : public Cmd {
     INNERSub(size_t N) : Cmd(), m_n(N) {};
     void callback(const print_t& in) override {};
     void callback(const command_t& in) override {
-        auto [level, status, cmd, time_stamp] = in;
+        auto &[level, status, cmd, time_stamp] = in;
         if (level != Level::OTHER) {
             return;
         }
@@ -260,7 +260,7 @@ class INNERSub : public Cmd {
                 m_curent_level_stack.clear();
                 m_curent_level_time_stamp = 0;
                 for (auto vv : m_level_map) {
-                    auto [level_stack, level_time_stamp, level_counter] = vv.second;
+                    auto &[level_stack, level_time_stamp, level_counter] = vv.second;
                     if (!level_stack.empty()) {
                         if (m_curent_level_time_stamp == 0) {
                             m_curent_level_time_stamp = level_time_stamp;
@@ -279,11 +279,8 @@ class INNERSub : public Cmd {
                 if (m_current_level > 0) {
                     --m_current_level;
                 }
-
-                auto [level_stack, level_time_stamp, level_counter] = m_level_map[m_current_level];
-                m_curent_level_stack = std::move(level_stack);
-                m_curent_level_time_stamp = level_time_stamp;
-                m_curent_level_counter = level_counter;
+                std::tie(m_curent_level_stack, m_curent_level_time_stamp, m_curent_level_counter) =
+                    m_level_map[m_current_level];
             }
             return;
         }
@@ -355,7 +352,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<ONSub>(N),
         std::make_shared<INNERSub>(N),
     };
-    auto [off, on, inner] = subs;
+    auto &[off, on, inner] = subs;
     inner->subscribe(on);
     for (auto v : subs_print) {
         off->subscribe(v);
