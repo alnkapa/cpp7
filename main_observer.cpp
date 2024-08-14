@@ -345,12 +345,11 @@ class File : public Subscriber<print_t> {
 };
 
 int main(int argc, char* argv[]) {
-    // if (argc != 2) {
-    //     std::cerr << "Usage: " << argv[0] << " N" << std::endl;
-    //     return 1;
-    // }
-    // size_t N = std::stoi(argv[1]);
-    size_t N = 3;
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << " N" << std::endl;
+        return 1;
+    }
+    size_t N = std::stoi(argv[1]);
     std::shared_ptr<Subscriber<print_t>> subs_print[] = {
         std::make_shared<Display>(),
         std::make_shared<File>(),
