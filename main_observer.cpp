@@ -127,7 +127,7 @@ class OFFSub : public Cmd {
         std::cout << std::endl;
     };
     void callback(const command_t& in) override {
-        auto &[level, status, cmd, time_stamp] = in;
+        auto& [level, status, cmd, time_stamp] = in;
         if (level != Level::NONE) {
             return;
         }
@@ -161,9 +161,7 @@ class ONSub : public Cmd {
     size_t m_n{3};
     size_t m_counter{0};
     void clear() {
-        if (!m_stack.empty()) {
-            m_stack.clear();
-        }
+        m_stack.clear();
         m_counter = 0;
         m_time_stamp = 0;
     };
@@ -180,11 +178,11 @@ class ONSub : public Cmd {
             m_time_stamp = in.first;
         }
         for (auto v : in.second) {
-            m_stack.emplace_back(std::move(v));
+            m_stack.emplace_back(v);
         }
     };
     void callback(const command_t& in) override {
-        auto &[level, status, cmd, time_stamp] = in;
+        auto& [level, status, cmd, time_stamp] = in;
         if (level != Level::FIRST) {
             return;
         }
@@ -226,17 +224,13 @@ class INNERSub : public Cmd {
     unix_time_stamp_t m_curent_level_time_stamp{};
     size_t m_curent_level_counter{0};
     int m_current_level{0};
-    void clear() {
-        if (!m_curent_level_stack.empty()) {
-            m_curent_level_stack.clear();
-        }
-    };
+    void clear() { m_curent_level_stack.clear(); };
 
    public:
     INNERSub(size_t N) : Cmd(), m_n(N) {};
     void callback(const print_t& in) override {};
     void callback(const command_t& in) override {
-        auto &[level, status, cmd, time_stamp] = in;
+        auto& [level, status, cmd, time_stamp] = in;
         if (level != Level::OTHER) {
             return;
         }
@@ -244,8 +238,8 @@ class INNERSub : public Cmd {
 
         // "{"
         if (status == Status::BLOCK_ON) {
-            m_level_map[m_current_level] = std::move(
-                std::make_tuple(std::move(m_curent_level_stack), m_curent_level_time_stamp, m_curent_level_counter));
+            m_level_map[m_current_level] =
+                std::make_tuple(std::move(m_curent_level_stack), m_curent_level_time_stamp, m_curent_level_counter);
             m_curent_level_time_stamp = 0;
             m_curent_level_counter = 0;
             ++m_current_level;
@@ -255,12 +249,12 @@ class INNERSub : public Cmd {
         // "}"
         if (status == Status::BLOCK_OFF) {
             if (m_current_level == 0) {  // notify ONSub
-                m_level_map[m_current_level] = std::move(std::make_tuple(
-                    std::move(m_curent_level_stack), m_curent_level_time_stamp, m_curent_level_counter));
+                m_level_map[m_current_level] =
+                    std::make_tuple(std::move(m_curent_level_stack), m_curent_level_time_stamp, m_curent_level_counter);
                 m_curent_level_stack.clear();
                 m_curent_level_time_stamp = 0;
                 for (auto vv : m_level_map) {
-                    auto &[level_stack, level_time_stamp, level_counter] = vv.second;
+                    auto& [level_stack, level_time_stamp, level_counter] = vv.second;
                     if (!level_stack.empty()) {
                         if (m_curent_level_time_stamp == 0) {
                             m_curent_level_time_stamp = level_time_stamp;
@@ -268,14 +262,17 @@ class INNERSub : public Cmd {
                         for (auto v : level_stack) {
                             m_curent_level_stack.emplace_back(std::move(v));
                         }
+                        // m_curent_level_stack.insert(m_curent_level_stack.end(),
+                        //                             std::make_move_iterator(level_stack.begin()),
+                        //                             std::make_move_iterator(level_stack.end()));
                     }
                 }
                 if (!m_curent_level_stack.empty()) {
                     notify({m_curent_level_time_stamp, m_curent_level_stack});
                 }
             } else {
-                m_level_map[m_current_level] = std::move(std::make_tuple(
-                    std::move(m_curent_level_stack), m_curent_level_time_stamp, m_curent_level_counter));
+                m_level_map[m_current_level] = std::make_tuple(
+                    std::move(m_curent_level_stack), m_curent_level_time_stamp, m_curent_level_counter);
                 if (m_current_level > 0) {
                     --m_current_level;
                 }
@@ -352,7 +349,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<ONSub>(N),
         std::make_shared<INNERSub>(N),
     };
-    auto &[off, on, inner] = subs;
+    auto& [off, on, inner] = subs;
     inner->subscribe(on);
     for (auto v : subs_print) {
         off->subscribe(v);
