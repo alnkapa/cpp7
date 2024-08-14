@@ -15,7 +15,7 @@ set_target_properties(bulk PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 install(
     TARGETS bulk
