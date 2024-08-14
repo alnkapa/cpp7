@@ -56,10 +56,7 @@ class Status {
                     multiStream << ", ";
                 }
             }
-            multiStream << std::endl;
-            if (file.is_open()) {
-                file.close();
-            }
+            multiStream << std::endl;            
         }
     };
 
