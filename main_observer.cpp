@@ -336,7 +336,6 @@ class File : public Subscriber<print_t> {
                 }
             }
             file << std::endl;
-            file.close();
         }
     };
 };
