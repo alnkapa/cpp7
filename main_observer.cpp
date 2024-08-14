@@ -319,10 +319,7 @@ class Display : public Subscriber<print_t> {
         std::cout << std::endl;
     };
 };
-// закрыть файл
-void close_file(std::fstream* ptr) {
-    if (ptr->is_open()) ptr->close();
-};
+
 // вывод в файл
 class File : public Subscriber<print_t> {
    public:
